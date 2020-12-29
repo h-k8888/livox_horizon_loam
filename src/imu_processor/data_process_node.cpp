@@ -9,12 +9,12 @@
 
 /// *************Config data
 std::string topic_pcl = "/livox_pcl0";
-std::string topic_imu = "/imu";
+std::string topic_imu = "/imu";// /livox/imu??
 /// *************
 
 /// To notify new data
-std::mutex mtx_buffer;
-std::condition_variable sig_buffer;
+std::mutex mtx_buffer;//互斥锁
+std::condition_variable sig_buffer;//条件变量
 bool b_exit = false;
 bool b_reset = false;
 
@@ -117,6 +117,7 @@ void ProcessLoop(std::shared_ptr<ImuProcess> p_imu) {
   while (ros::ok()) {
     MeasureGroup meas;
     std::unique_lock<std::mutex> lk(mtx_buffer);
+    //等待解锁
     sig_buffer.wait(lk,
                     [&meas]() -> bool { return SyncMeasure(meas) || b_exit; });
     lk.unlock();
@@ -149,15 +150,16 @@ int main(int argc, char **argv) {
   std::shared_ptr<ImuProcess> p_imu(new ImuProcess());
 
   std::vector<double> vec;
+  // 外部IMU参数
   if( nh.getParam("/ExtIL", vec) ){
-    Eigen::Quaternion<double> q_il;
-    Eigen::Vector3d t_il;
+    Eigen::Quaternion<double> q_il;//旋转
+    Eigen::Vector3d t_il;//平移
     q_il.w() = vec[0];
     q_il.x() = vec[1];
     q_il.y() = vec[2];
     q_il.z() = vec[3];
     t_il << vec[4], vec[5], vec[6];
-    p_imu->set_T_i_l(q_il, t_il);
+    p_imu->set_T_i_l(q_il, t_il);//转Sophus::SE3d
     ROS_INFO("Extrinsic Parameter RESET ... ");
   }
 

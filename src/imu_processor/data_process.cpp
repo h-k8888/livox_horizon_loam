@@ -86,6 +86,7 @@ void ImuProcess::UndistortPcl(const PointCloudXYZI::Ptr &pcl_in_out,
   }
 }
 
+//纠正畸变核心函数
 void ImuProcess::Process(const MeasureGroup &meas) {
   ROS_ASSERT(!meas.imu.empty());
   ROS_ASSERT(meas.lidar != nullptr);

@@ -26,6 +26,7 @@ class ImuProcess {
   void Process(const MeasureGroup &meas);
   void Reset();
 
+  //陀螺仪积分
   void IntegrateGyr(const std::vector<sensor_msgs::Imu::ConstPtr> &v_imu);
 
   void UndistortPcl(const PointCloudXYZI::Ptr &pcl_in_out, double dt_be,

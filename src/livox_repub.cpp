@@ -6,12 +6,14 @@
 ros::Publisher pub_pcl_out0, pub_pcl_out1;
 uint64_t TO_MERGE_CNT = 1; 
 constexpr bool b_dbg_line = false;
-std::vector<livox_ros_driver::CustomMsgConstPtr> livox_data;
+std::vector<livox_ros_driver::CustomMsgConstPtr> livox_data;//todo check line
+
+//livox cloud ---> pcl::PointXYZINormal --->  sensor_msgs::PointCloud2
 void LivoxMsgCbk1(const livox_ros_driver::CustomMsgConstPtr& livox_msg_in) {
   livox_data.push_back(livox_msg_in);
   if (livox_data.size() < TO_MERGE_CNT) return;
 
-  pcl::PointCloud<PointType> pcl_in;
+  pcl::PointCloud<PointType> pcl_in;//PointType pcl::PointXYZINormal
 
   for (size_t j = 0; j < livox_data.size(); j++) {
     auto& livox_msg = livox_data[j];
@@ -24,9 +26,11 @@ void LivoxMsgCbk1(const livox_ros_driver::CustomMsgConstPtr& livox_msg_in) {
 //      if (pt.z < -0.3) continue; // delete some outliers (our Horizon's assembly height is 0.3 meters)
       float s = livox_msg->points[i].offset_time / (float)time_end;
 //       ROS_INFO("_s-------- %.6f ",s);
+
+      //todo: s * 0.1?? 一个周期0.1s?, check line number
       pt.intensity = livox_msg->points[i].line + s*0.1; // The integer part is line number and the decimal part is timestamp
 //      ROS_INFO("intensity-------- %.6f ",pt.intensity);
-      pt.curvature = livox_msg->points[i].reflectivity * 0.1;
+      pt.curvature = livox_msg->points[i].reflectivity * 0.1;//curvature is livox reflectivity
       // ROS_INFO("pt.curvature-------- %.3f ",pt.curvature);
       pcl_in.push_back(pt);
     }
