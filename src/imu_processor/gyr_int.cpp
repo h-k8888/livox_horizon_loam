@@ -33,7 +33,16 @@ void GyrInt::Integrate(const sensor_msgs::ImuConstPtr &imu) {
 
     /// Interpolate imu in
     sensor_msgs::ImuPtr imu_inter(new sensor_msgs::Imu());
+    /*                    lidar   imu
+     *                    |        |
+     *                    |        | <-last_imu_ \
+     *  start_timestamp_->|        |       \     / d1
+     *                    |        | <-imu / d2
+     *                    |        |
+     */
+    //上一lidar时间 - 上一imu容器最后数据
     double dt1 = start_timestamp_ - last_imu_->header.stamp.toSec();
+    //当前imu时间 - 上一lidar时间
     double dt2 = imu->header.stamp.toSec() - start_timestamp_;
     ROS_ASSERT_MSG(dt1 >= 0 && dt2 >= 0, "%f - %f - %f",
                    last_imu_->header.stamp.toSec(), start_timestamp_,
@@ -47,6 +56,7 @@ void GyrInt::Integrate(const sensor_msgs::ImuConstPtr &imu) {
     const auto &acc2 = imu->linear_acceleration;
 
     imu_inter->header.stamp.fromSec(start_timestamp_);
+    //velocity acceleration 按时间比例插值
     imu_inter->angular_velocity.x = w1 * gyr1.x + w2 * gyr2.x;
     imu_inter->angular_velocity.y = w1 * gyr1.y + w2 * gyr2.y;
     imu_inter->angular_velocity.z = w1 * gyr1.z + w2 * gyr2.z;
@@ -69,10 +79,10 @@ void GyrInt::Integrate(const sensor_msgs::ImuConstPtr &imu) {
                       imu->angular_velocity.z);
   assert(time >= 0);
   double dt = time - time_last;
-  auto delta_angle = dt * 0.5 * (gyr + gyr_last);
-  auto delta_r = SO3d::exp(delta_angle);
+  auto delta_angle = dt * 0.5 * (gyr + gyr_last);//时间 × 角速度均值
+  auto delta_r = SO3d::exp(delta_angle);//映射
 
-  SO3d rot = rot_last * delta_r;
+  SO3d rot = rot_last * delta_r;//累积旋转
 
   v_imu_.push_back(imu);
   v_rot_.push_back(rot);

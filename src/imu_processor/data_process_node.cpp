@@ -14,7 +14,7 @@ std::string topic_imu = "/imu";// /livox/imu??
 
 /// To notify new data
 std::mutex mtx_buffer;//互斥锁
-std::condition_variable sig_buffer;//条件变量
+std::condition_variable sig_buffer;//条件变量允许通过通知进而实现线程同步
 bool b_exit = false;
 bool b_reset = false;
 
@@ -69,19 +69,22 @@ void imu_cbk(const sensor_msgs::Imu::ConstPtr &msg_in) {
   sig_buffer.notify_all();
 }
 
+//measgroup获取队列中的最早lidar数据，以及此lidar数据之前的imu数据
 bool SyncMeasure(MeasureGroup &measgroup) {
   if (lidar_buffer.empty() || imu_buffer.empty()) {
     /// Note: this will happen
     return false;
   }
 
+  //lidar_buffer, imu_buffer的back指向最新数据
+  //imu最早数据晚于lidar最新数据
   if (imu_buffer.front()->header.stamp.toSec() >
       lidar_buffer.back()->header.stamp.toSec()) {
     lidar_buffer.clear();
     ROS_ERROR("clear lidar buffer, only happen at the beginning");
     return false;
   }
-
+    //imu最晚数据早于lidar最早数据
   if (imu_buffer.back()->header.stamp.toSec() <
       lidar_buffer.front()->header.stamp.toSec()) {
     return false;
@@ -97,11 +100,14 @@ bool SyncMeasure(MeasureGroup &measgroup) {
   int imu_cnt = 0;
   for (const auto &imu : imu_buffer) {
     double imu_time = imu->header.stamp.toSec();
+    //measgroup.imu记录早于lidar时间的IMU数据
     if (imu_time <= lidar_time) {
       measgroup.imu.push_back(imu);
       imu_cnt++;
     }
   }
+
+  //imu_buffer中pop掉measgroup已记录的imu数据
   for (int i = 0; i < imu_cnt; ++i) {
     imu_buffer.pop_front();
   }
@@ -116,8 +122,11 @@ void ProcessLoop(std::shared_ptr<ImuProcess> p_imu) {
   ros::Rate r(1000);
   while (ros::ok()) {
     MeasureGroup meas;
-    std::unique_lock<std::mutex> lk(mtx_buffer);
-    //等待解锁
+    std::unique_lock<std::mutex> lk(mtx_buffer);//std::unique_lock lk构造时加锁,lk没有mtx_buffer所有权
+
+    //等待解锁, SyncMeasure函数检查lidar和imu数据是否为空
+    //meas获取队列中的最早lidar数据，以及此lidar数据之前的imu数据
+    //SyncMeasure、b_exit都返回false时线程等待
     sig_buffer.wait(lk,
                     [&meas]() -> bool { return SyncMeasure(meas) || b_exit; });
     lk.unlock();
@@ -133,6 +142,7 @@ void ProcessLoop(std::shared_ptr<ImuProcess> p_imu) {
       b_reset = false;
       continue;
     }
+    //纠正畸变
     p_imu->Process(meas);
 
     r.sleep();

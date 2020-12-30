@@ -43,6 +43,10 @@ void ImuProcess::Reset() {
 void ImuProcess::IntegrateGyr(
     const std::vector<sensor_msgs::Imu::ConstPtr> &v_imu) {
   /// Reset gyr integrator
+  //last_imu_ = meas.imu.back() 上一imu数据back指向的数据
+  //上一lidar时间， last_imu_记录的是早于上一lidar的最后imu数据,
+  //相减即上一imu最后记录时间与上一lidar数据接收时间的差值
+  //重新设定积分的起始和结束时间，清空  v_rot_  v_imu_
   gyr_int_.Reset(last_lidar_->header.stamp.toSec(), last_imu_);
   /// And then integrate all the imu measurements
   for (const auto &imu : v_imu) {
@@ -90,7 +94,7 @@ void ImuProcess::UndistortPcl(const PointCloudXYZI::Ptr &pcl_in_out,
 void ImuProcess::Process(const MeasureGroup &meas) {
   ROS_ASSERT(!meas.imu.empty());
   ROS_ASSERT(meas.lidar != nullptr);
-  ROS_DEBUG("Process lidar at time: %.4f, %lu imu msgs from %.4f to %.4f",
+  ROS_DEBUG("Process lidar at time: %.4f, % lu imu msgs from %.4f to %.4f",
             meas.lidar->header.stamp.toSec(), meas.imu.size(),
             meas.imu.front()->header.stamp.toSec(),
             meas.imu.back()->header.stamp.toSec());
@@ -105,7 +109,7 @@ void ImuProcess::Process(const MeasureGroup &meas) {
 
     /// Record first lidar, and first useful imu
     last_lidar_ = pcl_in_msg;
-    last_imu_ = meas.imu.back();
+    last_imu_ = meas.imu.back(); //
 
     ROS_WARN("The very first lidar frame");
 
@@ -115,6 +119,7 @@ void ImuProcess::Process(const MeasureGroup &meas) {
   }
 
   /// Integrate all input imu message
+  //此处的imu数据为lidar时间戳之前的数据
   IntegrateGyr(meas.imu);
 
   /// Compensate lidar points with IMU rotation
