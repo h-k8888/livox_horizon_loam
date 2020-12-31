@@ -35,9 +35,12 @@ void GyrInt::Integrate(const sensor_msgs::ImuConstPtr &imu) {
     sensor_msgs::ImuPtr imu_inter(new sensor_msgs::Imu());
     /*                    lidar   imu
      *                    |        |
-     *                    |        | <-last_imu_ \
-     *  start_timestamp_->|        |       \     / d1
-     *                    |        | <-imu / d2
+     *                    |        | <-last_imu_   \ d1
+     *  start_timestamp_->|        | <-imu_inter   /     \     --|<-v_rot = I
+     *                    |        | <-imu               / d2    |<-v_rot
+     *                    |        |  ...                        |<-v_rot
+     *                    |        | -<imu                     --|<-v_rot
+     *             lidar->|        |
      *                    |        |
      */
     //上一lidar时间 - 上一imu容器最后数据

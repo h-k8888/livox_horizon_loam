@@ -41,6 +41,11 @@ class ImuProcess {
   /// Whether is the first frame, init for first frame
   bool b_first_frame_ = true;
 
+  /* livox_repub.cpp中的定义：
+   *     typedef pcl::PointXYZINormal PointType;
+   *     typedef pcl::PointCloud<PointType> PointCloudXYZI;
+   * livox_repub发布PointType
+   */
   //// Input pointcloud
   PointCloudXYZI::Ptr cur_pcl_in_;
   //// Undistorted pointcloud

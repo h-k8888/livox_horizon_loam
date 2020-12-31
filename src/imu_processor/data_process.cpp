@@ -58,15 +58,18 @@ void ImuProcess::IntegrateGyr(
            gyr_int_.GetRot().angleZ() * 180.0 / M_PI);
 }
 
+/* dt_be 当前lidar和上一lidar时间差
+ * Tbe 上一lidar到当前最新imu的变换
+ */
 void ImuProcess::UndistortPcl(const PointCloudXYZI::Ptr &pcl_in_out,
                               double dt_be, const Sophus::SE3d &Tbe) {
-  const Eigen::Vector3d &tbe = Tbe.translation();
+  const Eigen::Vector3d &tbe = Tbe.translation();//translation
   Eigen::Vector3d rso3_be = Tbe.so3().log();
   for (auto &pt : pcl_in_out->points) {
     int ring = int(pt.intensity);
-    float dt_bi = pt.intensity - ring;
+    float dt_bi = pt.intensity - ring;//delta time
 
-    if (dt_bi == 0) laserCloudtmp->push_back(pt);
+    if (dt_bi == 0) laserCloudtmp->push_back(pt);//记录当前lidar数据第一个点，作为/camera_init
     double ratio_bi = dt_bi / dt_be;
     /// Rotation from i-e
     double ratio_ie = 1 - ratio_bi;
@@ -74,6 +77,8 @@ void ImuProcess::UndistortPcl(const PointCloudXYZI::Ptr &pcl_in_out,
     Eigen::Vector3d rso3_ie = ratio_ie * rso3_be;
     SO3d Rie = SO3d::exp(rso3_ie);
 
+    //将点云位置从end时刻的位置反算到i时刻，变换Tbe是从begin到end，所以
+    //i时刻下pt的真实坐标是逆变换
     /// Transform to the 'end' frame, using only the rotation
     /// Note: Compensation direction is INVERSE of Frame's moving direction
     /// So if we want to compensate a point at timestamp-i to the frame-e
@@ -125,13 +130,17 @@ void ImuProcess::Process(const MeasureGroup &meas) {
   /// Compensate lidar points with IMU rotation
   //// Initial pose from IMU (with only rotation)
   SE3d T_l_c(gyr_int_.GetRot(), Eigen::Vector3d::Zero());
+  //旋转v_rot_.back()，从已积分的imu旋转矩阵
   dt_l_c_ =
-      pcl_in_msg->header.stamp.toSec() - last_lidar_->header.stamp.toSec();
+      pcl_in_msg->header.stamp.toSec() - last_lidar_->header.stamp.toSec();//点云时间差
   //// Get input pcl
+  //cur_pcl_in_类型为PointCloudXYZI::Ptr，未保存reflectivity信息，即/livox_pcl0中的curvature
   pcl::fromROSMsg(*pcl_in_msg, *cur_pcl_in_);
 
   /// Undistort points
 
+  // Transform form   (lidar<-imu) (now_imu<-imu_inter(last_lidar))  (imu<-lidar)
+  //T_l_be： lidar系下，上一lidar到最新imu数据的变换se3
   Sophus::SE3d T_l_be = T_i_l.inverse() * T_l_c * T_i_l;
   pcl::copyPointCloud(*cur_pcl_in_, *cur_pcl_un_);
   UndistortPcl(cur_pcl_un_, dt_l_c_, T_l_be);
