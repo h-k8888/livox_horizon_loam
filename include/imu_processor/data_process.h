@@ -47,6 +47,7 @@ class ImuProcess {
    * livox_repub发布PointType
    */
   //// Input pointcloud
+  //todo 此点云格式未保存curvature（原reflectivity）信息，更换格式加入reflectivity
   PointCloudXYZI::Ptr cur_pcl_in_;
   //// Undistorted pointcloud
   PointCloudXYZI::Ptr cur_pcl_un_;
